@@ -11,4 +11,9 @@ public class HomeController {
         return "Welcome to home page";
     }
 
+    @GetMapping("/test")
+public String test() {
+    return "Authenticated Successfully!";
+}
+
 }

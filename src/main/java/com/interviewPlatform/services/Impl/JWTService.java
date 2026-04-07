@@ -22,38 +22,67 @@ import io.jsonwebtoken.security.Keys;
 @Service
 public class JWTService {
 
-    private String secretKey="";
+    private final String secretKey = "my-secret-key-my-secret-key-my-secret-key-123456";
 
-    public JWTService(){
-        try {
-            KeyGenerator keyGenerator= KeyGenerator.getInstance("HmacSHA256");
-            SecretKey sk=keyGenerator.generateKey();
-           secretKey= Base64.getEncoder().encodeToString(sk.getEncoded());
-        } catch (NoSuchAlgorithmException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-    }
+    // public JWTService(){
+    //     try {
+    //         KeyGenerator keyGenerator= KeyGenerator.getInstance("HmacSHA256");
+    //         SecretKey sk=keyGenerator.generateKey();
+    //        secretKey= Base64.getEncoder().encodeToString(sk.getEncoded());
+    //     } catch (NoSuchAlgorithmException e) {
+    //         // TODO Auto-generated catch block
+    //         e.printStackTrace();
+    //     }
+    // }
 
-    public String generateToken(String username) {
+    // public String generateToken(String username) {
 
-        Map<String, Object> claims=new HashMap<>();
+    //     Map<String, Object> claims=new HashMap<>();
 
-        return Jwts.builder()
-                    .claims()
-                    .add(claims)
-                    .subject(username)// sub is basically the username
-                    .issuedAt(new Date(System.currentTimeMillis()))
-                    .expiration(new Date(System.currentTimeMillis() +1000* 60 *60 *30))
-                    .and()
-                    .signWith(getKey())
-                    .compact();
+    //     return Jwts.builder()
+    //                 .claims()
+    //                 .add(claims)
+    //                 .subject(username)// sub is basically the username
+    //                 .issuedAt(new Date(System.currentTimeMillis()))
+    //                 .expiration(new Date(System.currentTimeMillis() +1000* 60 *60 *30))
+    //                 .and()
+    //                 .signWith(getKey())
+    //                 .compact();
         
-    }
+    // }
 
+    public String generateAccessToken(String username) {
+
+    return Jwts.builder()
+            .subject(username)
+            .issuedAt(new Date(System.currentTimeMillis()))
+            .expiration(new Date(System.currentTimeMillis() + 1000 * 60 )) // 15 min
+            .signWith(getKey())
+            .compact();
+}
+
+public String generateRefreshToken(String username) {
+
+    return Jwts.builder()
+            .subject(username)
+            .issuedAt(new Date(System.currentTimeMillis()))
+            .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24 * 7)) // 7 days
+            .signWith(getKey())
+            .compact();
+}
+
+public boolean validateRefreshToken(String token) {
+    try {
+        return !isTokenExpired(token);
+    } catch (Exception e) {
+        return false;
+    }
+}
     private SecretKey getKey() {
 
-        byte[] keyBytes=Decoders.BASE64.decode(secretKey);
+        // byte[] keyBytes=Decoders.BASE64.decode(secretKey);
+
+        byte[] keyBytes = secretKey.getBytes();
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -81,7 +110,7 @@ public class JWTService {
         return (userName.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
 
-    private boolean isTokenExpired(String token) {
+    public boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
 

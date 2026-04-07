@@ -33,6 +33,14 @@ public class JwtFilter extends OncePerRequestFilter{
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+                String path = request.getServletPath();
+
+            // Skip JWT filter for public endpoints
+            if (path.equals("/login") || path.equals("/register") || path.equals("/refresh")) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
                 
        String authHeader=request.getHeader("Authorization");
        String token=null;
@@ -40,7 +48,13 @@ public class JwtFilter extends OncePerRequestFilter{
 
        if(authHeader != null && authHeader.startsWith("Bearer ")){
         token=authHeader.substring(7);
-        username=jwtService.extractUserName(token);
+        try {
+            username = jwtService.extractUserName(token);
+        } catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Token expired or invalid");
+            return;
+        }
        }
 
        if(username != null && SecurityContextHolder.getContext().getAuthentication() == null){

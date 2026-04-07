@@ -7,9 +7,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.interviewPlatform.dtos.request.RegisterRequest;
+import com.interviewPlatform.dtos.response.AuthResponse;
 import com.interviewPlatform.dtos.response.RegisterResponse;
 import com.interviewPlatform.entities.User;
-import com.interviewPlatform.enums.Role;
 import com.interviewPlatform.repositories.UserRepository;
 import com.interviewPlatform.services.UserService;
 
@@ -34,7 +34,7 @@ public class UserServiceImpl implements UserService {
         User user=new User();
         user.setUsername(request.username());
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setRole(Role.USER);
+        user.setRole(request.role());
 
        User savedUser= userRepository.save(user);
 
@@ -49,13 +49,34 @@ public class UserServiceImpl implements UserService {
 
 
     @Override
-    public String verify(User user) {
+    public AuthResponse verify(User user) {
         Authentication authentication=authManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword()));
 
-        if(authentication.isAuthenticated())
-            return jwtService.generateToken(user.getUsername());
+        if(authentication.isAuthenticated()){
+            //  Generate both tokens
+        String accessToken = jwtService.generateAccessToken(user.getUsername());
+        String refreshToken = jwtService.generateRefreshToken(user.getUsername());
 
-        return "fail";
+             //Fetch role from DB
+        User dbUser = userRepository.findByUsername(user.getUsername());
+
+        return new AuthResponse(
+            accessToken,
+            refreshToken,
+            dbUser.getUsername(),
+            dbUser.getRole().name()
+        );
+        }
+            
+
+        throw new RuntimeException("Invalid credentials");
+    }
+
+
+
+    @Override
+    public User findByUsername(String username) {
+        return userRepository.findByUsername(username);
     }
 
 }
