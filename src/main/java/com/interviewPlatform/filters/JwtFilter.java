@@ -12,6 +12,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.interviewPlatform.repositories.BlackListedTokenRepository;
 import com.interviewPlatform.services.Impl.CustomUserDetailsService;
 import com.interviewPlatform.services.Impl.JWTService;
 
@@ -29,6 +30,9 @@ public class JwtFilter extends OncePerRequestFilter{
     @Autowired
     ApplicationContext context;
 
+    @Autowired
+    private BlackListedTokenRepository blackListedTokenRepository;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -36,7 +40,7 @@ public class JwtFilter extends OncePerRequestFilter{
                 String path = request.getServletPath();
 
             // Skip JWT filter for public endpoints
-            if (path.equals("/login") || path.equals("/register") || path.equals("/refresh")) {
+            if (path.equals("/login") || path.equals("/register") || path.equals("/refresh") || path.equals("/logout")) {
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -48,11 +52,19 @@ public class JwtFilter extends OncePerRequestFilter{
 
        if(authHeader != null && authHeader.startsWith("Bearer ")){
         token=authHeader.substring(7);
+
+        // 1. Check blacklist FIRST
+        if (blackListedTokenRepository.existsByToken(token)) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Token is blacklisted. Please login again.");
+            return;
+        }
         try {
             username = jwtService.extractUserName(token);
         } catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Token expired or invalid");
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"Token expired or invalid\"}");
             return;
         }
        }

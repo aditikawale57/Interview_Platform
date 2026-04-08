@@ -55,8 +55,9 @@ public class JWTService {
 
     return Jwts.builder()
             .subject(username)
+            .claim("type", "access")
             .issuedAt(new Date(System.currentTimeMillis()))
-            .expiration(new Date(System.currentTimeMillis() + 1000 * 60 )) // 15 min
+            .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 5 )) // 15 min
             .signWith(getKey())
             .compact();
 }
@@ -65,6 +66,7 @@ public String generateRefreshToken(String username) {
 
     return Jwts.builder()
             .subject(username)
+            .claim("type", "refresh")
             .issuedAt(new Date(System.currentTimeMillis()))
             .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24 * 7)) // 7 days
             .signWith(getKey())
@@ -114,9 +116,14 @@ public boolean validateRefreshToken(String token) {
         return extractExpiration(token).before(new Date());
     }
 
-    private Date extractExpiration(String token) {
+    public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
+
+    public boolean isRefreshToken(String token) {
+    return extractClaim(token, claims -> claims.get("type", String.class)).equals("refresh");
+}
+
 
 
 }

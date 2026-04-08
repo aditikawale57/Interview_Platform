@@ -1,5 +1,8 @@
 package com.interviewPlatform.services.Impl;
 
+import java.util.Date;
+import java.util.Optional;
+
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -9,7 +12,9 @@ import org.springframework.stereotype.Service;
 import com.interviewPlatform.dtos.request.RegisterRequest;
 import com.interviewPlatform.dtos.response.AuthResponse;
 import com.interviewPlatform.dtos.response.RegisterResponse;
+import com.interviewPlatform.entities.RefreshToken;
 import com.interviewPlatform.entities.User;
+import com.interviewPlatform.repositories.RefreshTokenRepositotry;
 import com.interviewPlatform.repositories.UserRepository;
 import com.interviewPlatform.services.UserService;
 
@@ -22,17 +27,19 @@ public class UserServiceImpl implements UserService {
     private final AuthenticationManager authManager;
     private final JWTService jwtService;
     private final  UserRepository userRepository;
+    private final RefreshTokenRepositotry refreshTokenRepositotry;
 
     
 
     @Override
     public RegisterResponse registerUser(RegisterRequest request) {
-        // if (userRepository.findByUsername(request.username()).isPresent()) {
-        //     throw new RuntimeException("Username already exists");
-        // }
+        // check duplicate email
+        if (userRepository.existsByEmail(request.email())) {
+            throw new RuntimeException("Email already exists");
+        }
 
         User user=new User();
-        user.setUsername(request.username());
+        user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setRole(request.role());
 
@@ -40,7 +47,7 @@ public class UserServiceImpl implements UserService {
 
         return new RegisterResponse(
             savedUser.getId(),
-            savedUser.getUsername(),
+            savedUser.getEmail(),
             savedUser.getRole()
         );
 
@@ -50,20 +57,29 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public AuthResponse verify(User user) {
-        Authentication authentication=authManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword()));
+        //Authenticate User
+        Authentication authentication=authManager.authenticate(new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword()));
 
         if(authentication.isAuthenticated()){
-            //  Generate both tokens
-        String accessToken = jwtService.generateAccessToken(user.getUsername());
-        String refreshToken = jwtService.generateRefreshToken(user.getUsername());
+            //Generate both tokens
+        String accessToken = jwtService.generateAccessToken(user.getEmail());
+        String refreshToken = jwtService.generateRefreshToken(user.getEmail());
 
              //Fetch role from DB
-        User dbUser = userRepository.findByUsername(user.getUsername());
+        User dbUser = userRepository.findByEmail(user.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
+
+        //save refresh token in DB
+        RefreshToken token=new RefreshToken();
+        token.setToken(refreshToken);
+        token.setUsername(dbUser.getEmail());
+        token.setExpiryDate(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24 * 7));
+
+        refreshTokenRepositotry.save(token);
 
         return new AuthResponse(
             accessToken,
             refreshToken,
-            dbUser.getUsername(),
+            dbUser.getEmail(),
             dbUser.getRole().name()
         );
         }
@@ -75,8 +91,8 @@ public class UserServiceImpl implements UserService {
 
 
     @Override
-    public User findByUsername(String username) {
-        return userRepository.findByUsername(username);
-    }
-
+    public User findByEmail(String email) {
+    return userRepository.findByEmail(email)
+        .orElseThrow(() -> new RuntimeException("User not found"));
+}
 }

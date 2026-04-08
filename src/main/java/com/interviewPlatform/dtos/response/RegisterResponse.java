@@ -4,7 +4,7 @@ import com.interviewPlatform.enums.Role;
 
 public record RegisterResponse(
     Long id,
-    String username,
+    String email,
     Role role
 ) {
 

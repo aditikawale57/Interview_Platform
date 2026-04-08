@@ -11,10 +11,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.interviewPlatform.dtos.request.RegisterRequest;
 import com.interviewPlatform.dtos.response.AuthResponse;
+import com.interviewPlatform.entities.BlacklistedToken;
 import com.interviewPlatform.entities.User;
+import com.interviewPlatform.repositories.BlackListedTokenRepository;
 import com.interviewPlatform.services.UserService;
 import com.interviewPlatform.services.Impl.JWTService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -24,6 +27,7 @@ public class AuthController {
    
     private final UserService userService;
     private final JWTService jwtService;
+    private final BlackListedTokenRepository blackListedTokenRepository;
 
 
     @PostMapping("/register")
@@ -42,29 +46,60 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public AuthResponse refresh(@RequestBody Map<String, String> request) {
-
+    public ResponseEntity<AuthResponse> refresh(@RequestBody Map<String, String> request) {
         String refreshToken = request.get("refreshToken");
 
-        String username = jwtService.extractUserName(refreshToken);
+        try {
+            String email = jwtService.extractUserName(refreshToken);
 
-        // Validate refresh token
-        if (!jwtService.isTokenExpired(refreshToken)) {
+            //  1. Check token type
+            if (!jwtService.isRefreshToken(refreshToken)) {
+                return ResponseEntity.status(401).body(null);
+            }
 
-            String newAccessToken = jwtService.generateAccessToken(username);
+            // 2.Check expiry
+            if (jwtService.isTokenExpired(refreshToken)) {
+                return ResponseEntity.status(401)
+                        .body(null);
+            }
 
-            // Fetch role from DB
-            User user = userService.findByUsername(username);
+            // 3.Generate new access token
+            String newAccessToken = jwtService.generateAccessToken(email);
 
-            return new AuthResponse(
+            //4. Fetch user
+            User user = userService.findByEmail(email);
+
+            AuthResponse response = new AuthResponse(
                     newAccessToken,
-                    refreshToken, // you can reuse same refresh token
-                    username,
+                    refreshToken, // reuse same refresh token
+                    email,
                     user.getRole().name()
             );
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body(null);
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(HttpServletRequest request){
+        String authHeader=request.getHeader("Authorization");
+
+        if(authHeader != null && authHeader.startsWith("Bearer ")){
+            String token=authHeader.substring(7);
+
+            BlacklistedToken blacklistedToken=new BlacklistedToken();
+            blacklistedToken.setToken(token);
+            blacklistedToken.setExpiryDate(jwtService.extractExpiration(token));
+
+            blackListedTokenRepository.save(blacklistedToken);
+
+            return ResponseEntity.ok("Logged out successfully");
         }
 
-        throw new RuntimeException("Refresh token expired. Please login again.");
+        return ResponseEntity.badRequest().body("No Token Found");
     }
 
 }

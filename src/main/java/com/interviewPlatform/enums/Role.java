@@ -1,6 +1,6 @@
 package com.interviewPlatform.enums;
 
 public enum Role {
-    ADMIN, USER
+    ADMIN, USER , INSTITUTE , INTERVIEWER, STUDENT
 
 }

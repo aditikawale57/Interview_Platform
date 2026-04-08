@@ -10,6 +10,6 @@ public interface UserService {
 
     public AuthResponse verify(User user);
 
-    public User findByUsername(String username);
+    public User findByEmail(String email);
 
 }
