@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/user/**").hasAnyRole("USER","ADMIN")
                 .requestMatchers("/institute/**").hasRole("INSTITUTE")
+                .requestMatchers("/departments").hasRole("INSTITUTE")
                 .requestMatchers("/institute-dashboard").permitAll()
                 .requestMatchers("/interviewer-dashboard").permitAll()
                 .requestMatchers("/student-dashboard").permitAll()
