@@ -12,6 +12,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -46,6 +47,9 @@ public class User {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @OneToOne(mappedBy = "user")
+    private Institute institute;
 
     @PrePersist
     protected void onCreate() {

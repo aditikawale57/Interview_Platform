@@ -1,5 +1,7 @@
 package com.interviewPlatform.entities;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -48,5 +50,10 @@ public class Institute {
     private String website;
 
     private Integer studentStrength;
+
+    @Column(unique = true)
+    private String registrationToken;
+
+    private LocalDateTime tokenCreatedAt;
 
 }

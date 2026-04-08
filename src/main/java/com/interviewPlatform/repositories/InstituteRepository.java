@@ -13,4 +13,8 @@ public interface InstituteRepository  extends JpaRepository<Institute,Long>{
 
     Optional<Institute>  findByUser(User user);
 
+    boolean existsByInstituteCode(String instituteCode);
+    Optional<Institute> findByRegistrationToken(String token);
+    Optional<Institute> findById(User user);
+    
 }
