@@ -1,4 +1,4 @@
-// 🔐 Validate registration link (ONLY for TPO registration page)
+// Validate registration link (ONLY for TPO registration page)
 
 const params = new URLSearchParams(window.location.search);
 const instId = params.get("inst");
@@ -18,7 +18,7 @@ if(instId && token){
       alert("Invalid or expired registration link");
       window.location.href = "login.html";
     } else {
-      console.log("✅ Valid registration link");
+      console.log("Valid registration link");
     }
   })
   .catch(err => {
@@ -99,14 +99,14 @@ async function handleSubmit(e, role){
 
   const form = e.target;
 
-  // ✅ Terms check
+  // Terms check
   const terms = form.querySelector('input[type="checkbox"]');
   if(!terms.checked){
     showToast('Please accept the Terms & Conditions.','error');
     return;
   }
 
-  // ✅ Password match check
+  // Password match check
   let password, confirmPassword;
 
   if(role==='institute'){
@@ -125,7 +125,7 @@ async function handleSubmit(e, role){
   try {
 
     // =========================
-    // 🏫 INSTITUTE (JSON)
+    // INSTITUTE (JSON)
     // =========================
     if(role === 'institute'){
 
@@ -148,13 +148,13 @@ async function handleSubmit(e, role){
     }
 
     // =========================
-    // 👨‍💼 INTERVIEWER (FormData)
+    // INTERVIEWER (FormData)
     // =========================
     if(role === 'interviewer'){
 
       const formData = new FormData(form);
 
-      // ✅ Skills fix
+      // Skills fix
       const skills = Array.from(document.querySelectorAll('#skills-tags-wrap .tag-chip'))
         .map(tag => tag.textContent.replace('×','').trim());
 
@@ -166,7 +166,7 @@ async function handleSubmit(e, role){
 
       const response = await fetch(`/register/interviewer`, {
         method: "POST",
-        body: formData   // 🚨 NO headers
+        body: formData   // NO headers
       });
 
       if(response.ok){

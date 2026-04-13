@@ -1,6 +1,7 @@
 package com.interviewPlatform.controllers;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,7 +27,7 @@ public class RegistrationController {
     }
 
     @PostMapping("/interviewer")
-    public ResponseEntity<?> registerInterviewer(@RequestBody InterviewerRegisterRequest request){
+    public ResponseEntity<?> registerInterviewer(@ModelAttribute InterviewerRegisterRequest request){
         authService.registerInterviewer(request);
         return ResponseEntity.ok("Interviewer Registered Successfully");
     }
