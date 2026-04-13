@@ -32,7 +32,6 @@ public class Mentor {
     // Personal Information
     private String firstName;
     private String lastName;
-    private String email;
     private String phone;
 
 
