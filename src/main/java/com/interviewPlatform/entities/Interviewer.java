@@ -1,5 +1,6 @@
 package com.interviewPlatform.entities;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import jakarta.persistence.CollectionTable;
@@ -11,6 +12,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -54,5 +56,12 @@ public class Interviewer {
     private String bio;
 
     private String profilePhotoUrl;
+
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate(){
+        this.createdAt=LocalDateTime.now();
+    }
 
 }

@@ -1,5 +1,6 @@
 package com.interviewPlatform.services.Impl;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -27,12 +28,18 @@ public class InterviewerServiceImpl implements InterviewerService {
 
     @Override
     public String registerInterviewer(InterviewerRegisterRequest dto) {
-        //1.check email
+        
+        // 1. Password match check
+        if (!dto.password().equals(dto.confirmPassword())) {
+            throw new RuntimeException("Passwords do not match");
+        }
+
+        //2.check email
         if(userRepository.findByEmail(dto.email()).isPresent()){
             throw new RuntimeException("Email already exists!!");
         }
 
-        //2.save user
+        //3.save user
         User user= new User();
         // user.setName(dto.fullName());
         user.setEmail(dto.email());
@@ -43,7 +50,7 @@ public class InterviewerServiceImpl implements InterviewerService {
 
        User savedUser= userRepository.save(user);
 
-       //3.save interviwer
+       //4.save interviwer
        Interviewer interviewer=new Interviewer();
        interviewer.setUser(savedUser);
        interviewer.setLocation(dto.location());
@@ -57,22 +64,22 @@ public class InterviewerServiceImpl implements InterviewerService {
        interviewer.setInterviewExperience(dto.interviewExperience());
        interviewer.setBio(dto.bio());
 
-       // 4. Handle Image Upload
-        // try {
-        //     if (dto.profilePhoto() != null && !dto.profilePhoto().isEmpty()) {
+       //5. Handle Image Upload
+        try {
+            if (dto.profilePhoto() != null && !dto.profilePhoto().isEmpty()) {
 
-        //         String fileName = System.currentTimeMillis() + "_" +
-        //                 dto.profilePhoto().getOriginalFilename();
+                String fileName = System.currentTimeMillis() + "_" +
+                        dto.profilePhoto().getOriginalFilename();
 
-        //         Path path = Paths.get("uploads/" + fileName);
-        //         Files.createDirectories(path.getParent());
-        //         Files.write(path, dto.profilePhoto().getBytes());
+                Path path = Paths.get("uploads/" + fileName);
+                Files.createDirectories(path.getParent());
+                Files.write(path, dto.profilePhoto().getBytes());
 
-        //         interviewer.setProfilePhoto(fileName);
-        //     }
-        // } catch (Exception e) {
-        //     throw new RuntimeException("File upload failed");
-        // }
+                interviewer.setProfilePhotoUrl(fileName);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("File upload failed");
+        }
 
         interviewerRepository.save(interviewer);
 

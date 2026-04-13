@@ -2,6 +2,8 @@ package com.interviewPlatform.dtos.request;
 
 import java.util.List;
 
+import org.springframework.web.multipart.MultipartFile;
+
 public record InterviewerRegisterRequest(
     String fullName,
     String email,
@@ -24,7 +26,8 @@ public record InterviewerRegisterRequest(
     String bio,
 
     String password,
-    String confirmPassword 
+    String confirmPassword,
+    MultipartFile profilePhoto
 ) {
 
 }
