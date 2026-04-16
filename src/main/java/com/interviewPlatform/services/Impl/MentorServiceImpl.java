@@ -56,7 +56,7 @@ public class MentorServiceImpl implements MentorService {
         .orElseThrow(() -> new RuntimeException("Department not found"));
 
     // 6. Check if TPO already exists
-    if (dept.getTpo() != null) {
+    if (dept.getMentor() != null) {
         throw new RuntimeException("TPO already assigned for this department");
     }
 

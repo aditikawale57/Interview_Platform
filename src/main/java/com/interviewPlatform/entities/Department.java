@@ -34,7 +34,7 @@ public class Department {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tpo_id", unique = true,nullable = true)
-    private User tpo;
+    private User mentor;
 
 
 }
