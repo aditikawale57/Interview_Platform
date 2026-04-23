@@ -23,6 +23,10 @@ public class DepartmentServiceImpl implements DepartmentService {
     
     @Override
     public DepartmentResponseDTO createDepartment(DepartmentRequestDTO dto) {
+        if (dto.instituteId() == null) {
+        throw new RuntimeException("Institute ID is required");
+    }
+
        Institute institute = instituteRepository.findById(dto.instituteId())
                 .orElseThrow(() -> new RuntimeException("Institute not found"));
 

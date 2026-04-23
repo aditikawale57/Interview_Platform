@@ -1,9 +1,12 @@
 package com.interviewPlatform.services.Impl;
 
+import java.time.LocalDateTime;
+
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.interviewPlatform.dtos.request.InstituteRegisterRequest;
+import com.interviewPlatform.dtos.response.InstituteResponseDTO;
 import com.interviewPlatform.entities.Institute;
 import com.interviewPlatform.entities.User;
 import com.interviewPlatform.enums.Role;
@@ -78,31 +81,53 @@ public String getOrCreateRegistrationLink(Long instituteId) {
     Institute institute = instituteRepository.findById(instituteId)
         .orElseThrow(() -> new RuntimeException("Institute not found"));
 
-    // If token not present → create once
-    if (institute.getRegistrationToken() == null) {
+   
+    String token = "REG-" + java.util.UUID.randomUUID()
+            .toString()
+            .substring(0, 8)
+            .toUpperCase();
 
-        String token = "REG-" + java.util.UUID.randomUUID()
-                .toString()
-                .substring(0, 8)
-                .toUpperCase();
+    institute.setRegistrationToken(token);
+    institute.setTokenCreatedAt(java.time.LocalDateTime.now());
 
-        institute.setRegistrationToken(token);
-        institute.setTokenCreatedAt(java.time.LocalDateTime.now());
+    instituteRepository.save(institute);
 
-        instituteRepository.save(institute);
-    }
-
-    // Always return same link
-    return "http://localhost:8080/tpo-register?inst="
-            + instituteId + "&token=" + institute.getRegistrationToken();
+    return "http://localhost:8080/register/mentor?inst="
+            + instituteId + "&token=" + token;
 }
 
     @Override
-    public boolean validateRegistrationToken(Long instituteId, String token) {
-        Institute institute = instituteRepository.findById(instituteId)
+public boolean validateRegistrationToken(Long instituteId, String token) {
+
+    Institute institute = instituteRepository.findById(instituteId)
         .orElseThrow(() -> new RuntimeException("Institute not found"));
 
-    return token.equals(institute.getRegistrationToken());
+    if (!token.equals(institute.getRegistrationToken())) {
+        return false;
+    }
+
+    // Expiry check (24 hours)
+    if (institute.getTokenCreatedAt() == null ||
+        institute.getTokenCreatedAt().plusHours(24).isBefore(LocalDateTime.now())) {
+        throw new RuntimeException("Token expired");
+    }
+
+    return true;
+}
+
+    @Override
+    public InstituteResponseDTO getInstituteById(Long id) {
+        Institute institute= instituteRepository.findById(id).orElseThrow(() -> new RuntimeException("Institute Not Found"));
+        return new InstituteResponseDTO(
+            institute.getId(),
+            institute.getInstituteName(),
+            institute.getCity()
+        );
+    }
+
+    @Override
+    public Institute getInstituteByEmail(String email) {
+        return instituteRepository.findByUserEmail(email).orElseThrow(()-> new RuntimeException("Institute Not Found"));
     }
 
 }

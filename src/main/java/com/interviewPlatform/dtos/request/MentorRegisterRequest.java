@@ -9,7 +9,7 @@ public record MentorRegisterRequest(
     String email,
     String phone,
 
-    String departmentName,
+    Long departmentId,
     String designation,
 
     String password,

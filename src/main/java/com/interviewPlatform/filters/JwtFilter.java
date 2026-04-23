@@ -25,7 +25,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class JwtFilter extends OncePerRequestFilter{
 
     @Autowired
-    private JWTService jwtService;
+    private JWTService jwtService;  
 
     @Autowired
     ApplicationContext context;
@@ -37,12 +37,15 @@ public class JwtFilter extends OncePerRequestFilter{
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+                System.out.println("Incoming request path: " + request.getServletPath());
+
                 String path = request.getServletPath();
 
             // Skip JWT filter for public endpoints
-            if (path.equals("/login") || path.equals("/register") || path.equals("/refresh") || path.equals("/logout")) {
-                filterChain.doFilter(request, response);
-                return;
+            if (path.startsWith("/login") || path.startsWith("/register")
+                || path.startsWith("/refresh") || path.startsWith("/logout")) {
+                    filterChain.doFilter(request, response);
+                    return;
             }
 
                 
@@ -72,6 +75,11 @@ public class JwtFilter extends OncePerRequestFilter{
        if(username != null && SecurityContextHolder.getContext().getAuthentication() == null){
 
         UserDetails userDetails=context.getBean(CustomUserDetailsService.class).loadUserByUsername(username);
+
+        //for debugging purpose only
+        System.out.println("Authenticated User: " + username);
+        System.out.println("Authorities: " + userDetails.getAuthorities());
+        System.out.println("Request URI: " + request.getRequestURI());
 
         if(jwtService.validateToken(token,userDetails )){
             UsernamePasswordAuthenticationToken authToken= new UsernamePasswordAuthenticationToken(userDetails, null,userDetails.getAuthorities());

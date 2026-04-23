@@ -1,5 +1,7 @@
 package com.interviewPlatform.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -30,6 +32,7 @@ public class Department {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "institute_id",nullable = false)
+    @JsonIgnore
     private Institute institute;
 
     @OneToOne(fetch = FetchType.LAZY)

@@ -2,6 +2,7 @@ package com.interviewPlatform.entities;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.interviewPlatform.enums.Role;
 import com.interviewPlatform.enums.Status;
 
@@ -49,6 +50,7 @@ public class User {
     private LocalDateTime createdAt;
 
     @OneToOne(mappedBy = "user")
+    @JsonBackReference
     private Institute institute;
 
     @PrePersist

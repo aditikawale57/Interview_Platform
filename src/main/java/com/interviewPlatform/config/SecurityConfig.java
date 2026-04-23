@@ -36,12 +36,15 @@ public class SecurityConfig {
         return http
             .csrf(customizer -> customizer.disable())
             .authorizeHttpRequests(request -> request
-                .requestMatchers("/","/register/**","/login","/refresh","/logout","/css/**","/js/**","/images/**").permitAll()
+                .requestMatchers("/","/register/**","/register/validate","/register/mentor","/login","/refresh","/logout","/css/**","/js/**","/images/**","/departments/institute/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/user/**").hasAnyRole("USER","ADMIN")
                 .requestMatchers("/institute/**").hasRole("INSTITUTE")
                 .requestMatchers("/departments").hasRole("INSTITUTE")
                 .requestMatchers("/institute-dashboard").permitAll()
+                .requestMatchers("/favicon.ico").permitAll()
+                .requestMatchers("/departments/stats/**").hasRole("INSTITUTE")
+                .requestMatchers("/api/institutes/*/mentors").hasRole("INSTITUTE")
                 .requestMatchers("/interviewer-dashboard").permitAll()
                 .requestMatchers("/student-dashboard").permitAll()
                 .requestMatchers("/mentor-dashboard").permitAll()

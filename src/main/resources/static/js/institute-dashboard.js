@@ -1,11 +1,6 @@
+const dashboardEl = document.getElementById("dashboard");
 async function loadDashboard() {
 
-    const dashboardEl = document.getElementById("dashboardContent");
-
-  if (!dashboardEl) {
-    console.error("dashboardContent element not found!");
-    return;
-  }
 
   const token = localStorage.getItem("accessToken");
 
@@ -15,7 +10,7 @@ async function loadDashboard() {
   }
 
   try {
-    const response = await fetch("/api/institute-dashboard", {
+    const response = await fetch("http://localhost:8080/api/institute-dashboard", {
       method: "GET",
       headers: {
         "Authorization": "Bearer " + token
@@ -39,45 +34,68 @@ async function loadDashboard() {
       return;
     }
 
-    const data = await response.text();
-    dashboardEl.innerText = data;
-
+    const data = await response.json();
+     dashboardState.departments = data;
+    dashboardEl.innerText = JSON.stringify(data, null, 2);
   } catch (err) {
     console.error(err);
-    dashboardEl.innerText = "Server error";
+    
   }
 }
 
 
-window.addEventListener("load", loadDashboard);
+// window.addEventListener("load", loadDashboard);
 
 const API_BASE = "http://localhost:8080/departments";
 /* ═══════════════════════════ STATE ═══════════════════════════ */
-let loggedInstitute = JSON.parse(localStorage.getItem('currentInstitute')) ||
-  {id:'1',instituteName:'ABC Institute of Technology',email:'admin@abc.edu'};
-loggedInstitute.id = String(loggedInstitute.id);
+let loggedInstitute = {
+  id: null,
+  instituteName: '',
+  email: ''
+};
 
-(function syncRegistry(){
-  const list = JSON.parse(localStorage.getItem('institutes'))||[];
-  if(!list.find(i=>String(i.id)===loggedInstitute.id)){
-    list.push({id:loggedInstitute.id,instituteName:loggedInstitute.instituteName||loggedInstitute.name,email:loggedInstitute.email});
-    localStorage.setItem('institutes',JSON.stringify(list));
+let dashboardState = {
+  departments: [],
+  interviews: []
+};
+
+function syncRegistry(){
+  const list = JSON.parse(localStorage.getItem('institutes')) || [];
+
+  if(!list.find(i => String(i.id) === String(loggedInstitute.id))){
+    list.push({
+      id: loggedInstitute.id,
+      instituteName: loggedInstitute.instituteName,
+      email: loggedInstitute.email
+    });
+    localStorage.setItem('institutes', JSON.stringify(list));
   }
-})();
+}
 
-const iid = loggedInstitute.id;
-const DEPTS_KEY  = 'instituteDepts_'+iid;
-const SETUP_KEY  = 'instituteSetupDone_'+iid;
-const TPO_KEY    = 'tpoCoordinators_'+iid;
+function getInstituteId() {
+  return loggedInstitute.id;
+}
 
-let departments = [];
+function getDeptKey() {
+  return 'instituteDepts_' + getInstituteId();
+}
+
+function getSetupKey() {
+  return 'instituteSetupDone_' + getInstituteId();
+}
+
+function getTpoKey() {
+  return 'tpoCoordinators_' + getInstituteId();
+}
+// dashboardState.departments = data;
 const palette   = ['#3B82F6','#10B981','#8B5CF6','#F59E0B','#EF4444','#0D9488','#6366F1','#EC4899'];
 
-function getTpo(){ return JSON.parse(localStorage.getItem(TPO_KEY))||[]; }
+
+function getTpo(){ return JSON.parse(localStorage.getItem(getTpoKey()))||[]; }
 function getLegacy(){ return JSON.parse(localStorage.getItem('departments'))||[]; }
 function getStatus(n){ return localStorage.getItem('reqStatus_'+n)||'Pending'; }
 function setStatus(n,s){ localStorage.setItem('reqStatus_'+n,s); }
-function saveDepts(){ localStorage.setItem(DEPTS_KEY,JSON.stringify(departments)); }
+function saveDepts(){ localStorage.setItem(getDeptKey(),JSON.stringify(departments)); }
 
 /* ═══════════════ HEADER INFO ═══════════════ */
 function initHeader(){
@@ -89,6 +107,54 @@ function initHeader(){
   document.getElementById('dropInstEmail').textContent = loggedInstitute.email||'';
 }
 
+async function fetchInstituteDetails() {
+  const token = localStorage.getItem("accessToken");
+
+  if (!token) {
+    console.error("No token found");
+    window.location.href = "/login";
+    return;
+  }
+
+  
+
+  try {
+    const res = await fetch("http://localhost:8080/api/institutes/me", {
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    });
+
+    if (res.status === 401) {
+      localStorage.clear();
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!res.ok) {
+      throw new Error("Failed to fetch institute");
+    }
+
+    const data = await res.json();
+
+    // Update global variable
+    loggedInstitute = {
+      id: data.id,
+      instituteName: data.instituteName,
+      email: data.email || ""  
+    };
+
+    // Save in localStorage 
+    localStorage.setItem("currentInstitute", JSON.stringify(loggedInstitute));
+
+    // Update header UI
+    initHeader();
+
+  } catch (err) {
+    console.error("Error fetching institute:", err);
+  }
+}
 /* ═══════════════ NAVIGATION ═══════════════ */
 function showView(v){
   document.querySelectorAll('.nav-links a').forEach(l=>l.classList.remove('active'));
@@ -99,7 +165,7 @@ function showView(v){
     requests:'Interview Requests',schedule:'Schedule Interview',settings:'Settings'};
   document.getElementById('page-title').textContent    = titles[v]||v;
   document.getElementById('breadcrumb-cur').textContent = titles[v]||v;
-  const fresh=JSON.parse(localStorage.getItem(DEPTS_KEY))||[];
+  const fresh=JSON.parse(localStorage.getItem(getDeptKey()))||[];
   if(fresh.length) departments=fresh;
   if(v==='overview'){renderOverview();}
   if(v==='departments'){renderDeptCards();}
@@ -157,26 +223,59 @@ function addSetupDept(){
   inp.value=''; renderSetupTags();
 }
 function removeSetupDept(i){ setupDepts.splice(i,1); renderSetupTags(); }
-function saveSetup(){
-  if(!setupDepts.length){showToast('Add at least one department or skip.','warn');return;}
-  setupDepts.forEach(n=>{
-    if(!departments.find(d=>d.name.toLowerCase()===n.toLowerCase()))
-      departments.push({name:n,coordinator:'Not Assigned'});
-  });
-  saveDepts(); renderAll();
-  localStorage.setItem(SETUP_KEY,'true');
-  closeOverlay('setupModal');
-  showToast('Departments saved!');
+async function saveSetup(){
+  const token = localStorage.getItem("accessToken");
+
+  if(!setupDepts.length){
+    showToast('Add at least one department or skip.','warn');
+    return;
+  }
+
+  try {
+    for (let name of setupDepts) {
+
+      const res = await fetch(API_BASE, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({
+          name: name,
+          instituteId: Number(getInstituteId())
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save department: " + name);
+      }
+    }
+
+    // AFTER saving → reload from backend
+    await fetchDepartments();
+
+    localStorage.setItem(getSetupKey(),'true');
+    closeOverlay('setupModal');
+
+    showToast('Departments saved successfully!');
+
+    console.log("Institute ID:", getInstituteId());
+
+  } catch(err){
+    console.error(err);
+    showToast('Error saving departments','error');
+  }
 }
-function skipSetup(){ localStorage.setItem(SETUP_KEY,'true'); closeOverlay('setupModal'); }
+function skipSetup(){ localStorage.setItem(getSetupKey(),'true'); closeOverlay('setupModal'); }
 function checkSetup(){
-  if(!localStorage.getItem(SETUP_KEY)){setupDepts=[];renderSetupTags();openOverlay('setupModal');}
+  if(!localStorage.getItem(getSetupKey())){setupDepts=[];renderSetupTags();openOverlay('setupModal');}
 }
 
 /* ═══════════════ DEPT MANAGEMENT ═══════════════ */
 async function addDept(){
   const inp = document.getElementById('newDeptInput');
   const n = inp.value.trim();
+  const token= localStorage.getItem("accessToken");
 
   if(!n){
     showToast('Enter a department name.','warn');
@@ -187,11 +286,12 @@ async function addDept(){
     const res = await fetch(API_BASE, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
       },
       body: JSON.stringify({
         name: n,
-        instituteId: Number(iid)   // IMPORTANT
+        instituteId: Number(getInstituteId())   
       })
     });
 
@@ -224,16 +324,38 @@ async function addDept(){
 }
 
 async function fetchDepartments(){
+  const token = localStorage.getItem("accessToken");  
+
   try {
-    const res = await fetch(`${API_BASE}/institute/${iid}`);
+    const res = await fetch(`${API_BASE}/institute/${getInstituteId()}`, {
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + token   
+      }
+    });
+
+    if (res.status === 401) {
+      showToast("Session expired. Login again", "error");
+      localStorage.clear();
+      window.location.href = "/login";
+      return;
+    }
+
+    if (res.status === 403) {
+      showToast("Access Denied", "error");
+      return;
+    }
+
     const data = await res.json();
+    dashboardState.departments = data; 
 
-    // 🔥 Get existing local data (IMPORTANT FIX)
-    const localDepts = JSON.parse(localStorage.getItem(DEPTS_KEY)) || [];
+    // Get existing local data (IMPORTANT FIX)
+    const localDepts = JSON.parse(localStorage.getItem(getDeptKey())) || [];
 
-    // 🔥 Merge backend + local (DON'T lose coordinator, schedule, etc.)
+    // Merge backend + local (DON'T lose coordinator, schedule, etc.)
     departments = data.map(d => {
       const local = localDepts.find(ld => ld.name === d.name) || {};
+     
 
       return {
         id: d.id,
@@ -245,8 +367,9 @@ async function fetchDepartments(){
         contactPerson: local.contactPerson
       };
     });
+     dashboardState.departments = departments;
 
-    saveDepts();   // 🔥 keep in sync
+    saveDepts();
     renderAll();
 
   } catch(err){
@@ -254,11 +377,61 @@ async function fetchDepartments(){
   }
 }
 
+async function fetchCoordinators() {
+  const token = localStorage.getItem("accessToken");
+
+  try {
+    const res = await fetch(`http://localhost:8080/api/institutes/${getInstituteId()}/mentors`, {
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    });
+
+    if (!res.ok) throw new Error("Failed to fetch coordinators");
+
+    const data = await res.json();
+
+    // Convert into map for easy usage
+    const map = {};
+    data.forEach(c => {
+      map[c.departmentName] = {
+        coordinatorName: c.coordinatorName,
+        email: c.email,
+        phone: c.phone,
+        designation: c.designation
+      };
+    });
+
+    return map;
+
+  } catch (err) {
+    console.error(err);
+    return {};
+  }
+}
+
 async function deleteDeptFromBackend(id){
+  const token = localStorage.getItem("accessToken"); 
+
   try {
     const res = await fetch(`${API_BASE}/${id}`, {
-      method: "DELETE"
+      method: "DELETE",
+      headers: {
+        "Authorization": "Bearer " + token  
+      }
     });
+
+    if (res.status === 401) {
+      showToast("Session expired. Login again", "error");
+      localStorage.clear();
+      window.location.href = "/login";
+      return;
+    }
+
+    if (res.status === 403) {
+      showToast("Access Denied", "error");
+      return;
+    }
 
     if(!res.ok) throw new Error("Delete failed");
 
@@ -296,10 +469,10 @@ function confirmDeleteDept(){
   closeOverlay('deleteDeptModal');
 }
 
-function renderSettingsTable(){
+async function renderSettingsTable(){
   const tbody=document.getElementById('deptTable');
-  const tpos=getTpo(); const tpoMap={};
-  tpos.forEach(c=>{tpoMap[c.departmentName]=c;});
+  const tpoMap=await fetchCoordinators();
+  
   if(!departments.length){
     tbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:24px;">No departments added yet.</td></tr>';
     return;
@@ -316,11 +489,10 @@ function renderSettingsTable(){
 }
 
 /* ═══════════════ DEPT CARDS ═══════════════ */
-function renderDeptCards(){
+async function renderDeptCards(){
   const grid=document.getElementById('deptCardsGrid');
   if(!grid)return;
-  const tpos=getTpo(); const tpoMap={};
-  tpos.forEach(c=>{tpoMap[c.departmentName]=c;});
+  const tpoMap = await fetchCoordinators();
   const leg=getLegacy(); const legMap={};
   leg.forEach(d=>{legMap[d.departmentName||d.name]=d;});
 
@@ -387,22 +559,26 @@ function loadDeptDetail(name,coord,initials,email,phone,desg,color){
 function hideDeptDetail(){ document.getElementById('deptDetailInline').style.display='none'; }
 
 /* ═══════════════ OVERVIEW ═══════════════ */
-function renderOverview(){
-  const tpos=getTpo(); const tpoMap={};
-  tpos.forEach(c=>{tpoMap[c.departmentName]=c;});
+async function renderOverview(){
+  const tpoMap = await fetchCoordinators();
   const leg=getLegacy(); const legMap={};
   leg.forEach(d=>{legMap[d.departmentName||d.name]=d;});
 
-  let total=0,pending=0,confirmed=0,cancelled=0,rescheduled=0;
-  departments.forEach(d=>{
-    const l=legMap[d.name]||{};
-    if(!(d.timeSlot||d.startDate||l.timeSlot||l.startDate))return;
-    total++;
-    const s=getStatus(d.name);
-    if(s==='Pending')pending++;
-    if(s==='Confirmed')confirmed++;
-    if(s==='Cancel')cancelled++;
-    if(s==='Rescheduled')rescheduled++;
+  const interviews = dashboardState.interviews || [];
+
+  let total = interviews.length;
+  let pending = 0;
+  let confirmed = 0;
+  let cancelled = 0;
+  let rescheduled = 0;
+
+  interviews.forEach(i => {
+    const s = (i.status || "").toLowerCase();
+
+    if (s === "pending") pending++;
+    else if (s === "confirmed") confirmed++;
+    else if (s === "cancel") cancelled++;
+    else if (s === "rescheduled") rescheduled++;
   });
 
   document.getElementById('ovDepts').textContent=departments.length;
@@ -440,11 +616,21 @@ function renderOverview(){
   grid.innerHTML='';
   departments.forEach((dept,idx)=>{
     const color=palette[idx%palette.length];
-    const tpo=tpoMap[dept.name]||null;
-    const l=legMap[dept.name]||{};
-    const coord=tpo?.coordinatorName||l.coordinatorName||dept.coordinator||'Not Assigned';
-    const status=getStatus(dept.name);
-    const isReg=!!tpo;
+    const deptName = dept.departmentName || dept.name;
+
+    const tpo = tpoMap[deptName] || null;
+    const l = legMap[deptName] || {};
+
+    const coord = tpo?.coordinatorName || l.coordinatorName || dept.coordinator || 'Not Assigned';
+
+    // ✅ FIX: get status from backend interviews, not localStorage
+    const deptInterview = (dashboardState.interviews || []).find(
+      i => (i.departmentName || i.name) === deptName
+    );
+    const status = deptInterview ? deptInterview.status : 'Not Scheduled';
+
+    const isReg = !!tpo;
+    
 
     const card=document.createElement('div');
     card.className='ov-dept-card';
@@ -465,7 +651,12 @@ function renderOverview(){
         <span style="font-size:11.5px;font-weight:600;color:var(--muted);">Request</span>
         ${statusBadge(status)}
       </div>`;
-    card.onclick=()=>openDeptModal(dept,tpo,l,color);
+    card.onclick = () => openDeptModal(
+      { ...dept, departmentName: deptName },
+      tpo,
+      l,
+      color
+    );
     grid.appendChild(card);
   });
 }
@@ -478,7 +669,13 @@ function openDeptModal(dept,tpo,l,color){
   const timeSlot=dept.timeSlot||l.timeSlot||'Not Scheduled';
   const expertise=dept.expertise||l.expertise||'—';
   const isReg=!!tpo;
-  const status=getStatus(dept.name);
+
+  // ✅ FIX: get status from backend interviews, not localStorage
+  const deptInterview = (dashboardState.interviews || []).find(
+    i => (i.departmentName || i.name) === dept.name
+  );
+  const status = deptInterview ? deptInterview.status : getStatus(dept.name);
+
   document.getElementById('deptDetailTitle').innerHTML=
     `<i class="fa-solid fa-sitemap" style="color:${color};"></i> ${dept.name}`;
   document.getElementById('deptDetailBody').innerHTML=`
@@ -518,29 +715,40 @@ function openDeptModal(dept,tpo,l,color){
 }
 
 /* ═══════════════ REQUESTS ═══════════════ */
+/* ✅ FIX: renderReqStats now reads from dashboardState.interviews (backend data)
+   instead of looping departments + localStorage — same source as renderOverview */
 function renderReqStats(){
-  const today=new Date().toISOString().slice(0,10);
-  const leg=getLegacy(); const legMap={};
-  leg.forEach(d=>{legMap[d.departmentName||d.name]=d;});
-  let total=0,pending=0,confirmed=0,canceled=0,todayCount=0;
-  departments.forEach(d=>{
-    const l=legMap[d.name]||{};
-    if(!(d.timeSlot||d.startDate||l.timeSlot||l.startDate))return;
-    total++;
-    const s=getStatus(d.name);
-    if(s==='Pending')pending++;
-    if(s==='Confirmed')confirmed++;
-    if(s==='Cancel')canceled++;
-    const sd=d.startDate||l.startDate||'';
-    if(sd&&sd.startsWith(today))todayCount++;
+  const interviews = dashboardState.interviews || [];
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  let total      = interviews.length;
+  let pending    = 0;
+  let confirmed  = 0;
+  let canceled   = 0;
+  let rescheduled= 0;
+  let todayCount = 0;
+
+  interviews.forEach(i => {
+    const s  = (i.status || "").toLowerCase();
+    const sd = (i.startDate || i.timeSlot || "").slice(0, 10);
+
+    if      (s === "pending")     pending++;
+    else if (s === "confirmed")   confirmed++;
+    else if (s === "cancel")      canceled++;
+    else if (s === "rescheduled") rescheduled++;
+
+    if (sd && sd === today) todayCount++;
   });
-  const rate=total?Math.round((confirmed/total)*100):0;
-  document.getElementById('rscTotal').textContent=total;
-  document.getElementById('rscPending').textContent=pending;
-  document.getElementById('rscConfirmed').textContent=confirmed;
-  document.getElementById('rscCanceled').textContent=canceled;
-  document.getElementById('rscToday').textContent=todayCount;
-  document.getElementById('rscRate').textContent=rate+'%';
+
+  const rate = total ? Math.round((confirmed / total) * 100) : 0;
+
+  document.getElementById('rscTotal').textContent    = total;
+  document.getElementById('rscPending').textContent  = pending;
+  document.getElementById('rscConfirmed').textContent= confirmed;
+  document.getElementById('rscCanceled').textContent = canceled;
+  document.getElementById('rscToday').textContent    = todayCount;
+  document.getElementById('rscRate').textContent     = rate + '%';
 }
 
 function populateDeptFilter(){
@@ -558,9 +766,43 @@ function populateDeptFilter(){
   sel.value=cur;
 }
 
-function renderReqTable(){ populateDeptFilter(); applyFilters(); }
+// dashboardState.interviews = await fetchInterviewRequests();
 
-function applyFilters(){
+async function fetchInterviewRequests() {
+  const token = localStorage.getItem("accessToken");
+
+  try {
+    const res = await fetch("http://localhost:8080/api/interview-requests", {
+      headers: { "Authorization": "Bearer " + token }
+    });
+
+    if (!res.ok) throw new Error("Failed");
+
+    interviewRequests = await res.json();
+    dashboardState.interviews = interviewRequests;
+
+    // ✅ Always refresh both stats and overview after fetching
+    renderReqStats();
+    renderOverview();
+    return interviewRequests;
+
+  } catch (err){
+    console.error(err);
+    interviewRequests = [];
+    dashboardState.interviews = [];
+    return [];
+  }
+}
+
+async function renderReqTable(){ 
+  await fetchInterviewRequests();
+  if (!interviewRequests.length) {
+  console.warn("No interview requests found");
+}
+  populateDeptFilter(); 
+  await applyFilters(); }
+
+async function applyFilters(){
   const tbody=document.getElementById('reqTableBody');
   if(!tbody)return;
   const fS=(document.getElementById('fStatus')?.value||'').trim();
@@ -569,13 +811,9 @@ function applyFilters(){
   const fQ=(document.getElementById('fSearch')?.value||'').trim().toLowerCase();
   const leg=getLegacy(); const legMap={};
   leg.forEach(d=>{legMap[d.departmentName||d.name]=d;});
-  const tpos=getTpo(); const tpoMap={};
-  tpos.forEach(c=>{tpoMap[c.departmentName]=c;});
+  const tpoMap = await fetchCoordinators();
 
-  const sched=departments.filter(d=>{
-    const l=legMap[d.name]||{};
-    return !!(d.timeSlot||d.startDate||l.timeSlot||l.startDate);
-  });
+  const sched=dashboardState.interviews;
 
   tbody.innerHTML='';
   if(!sched.length){
@@ -589,20 +827,29 @@ function applyFilters(){
 
   let visible=0;
   sched.forEach(d=>{
-    const l=legMap[d.name]||{};
-    const tpo=tpoMap[d.name]||null;
+    const deptName = d.departmentName || d.name;
+
+    const l = legMap[deptName] || {};
+    const tpo = tpoMap[deptName] || null;
+
     const coord=tpo?.coordinatorName||l.coordinatorName||d.coordinator||'Not Assigned';
     const exp=d.expertise||l.expertise||'—';
     const slot=d.timeSlot||l.timeSlot||'Not Scheduled';
     const sd=d.startDate||l.startDate||'';
-    const s=getStatus(d.name);
+
+    // ✅ Use backend status directly from the interview object
+    const s = d.status || getStatus(deptName);
+
     if(fS&&s!==fS)return;
-    if(fD&&d.name!==fD)return;
+    if (fD && deptName !== fD) return;
+
     if(fDate){const slotDate=sd?sd.slice(0,10):slot.slice(0,10);if(!slotDate.startsWith(fDate))return;}
-    if(fQ&&!(d.name+' '+coord+' '+exp).toLowerCase().includes(fQ))return;
+    if (fQ && !(deptName + ' ' + coord + ' ' + exp).toLowerCase().includes(fQ)) return;
     visible++;
+
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><b>${d.name}</b></td><td>${coord}</td>
+    tr.innerHTML=`<td><b>${deptName}</b></td>
+    <td>${coord}</td>
       <td style="font-size:12.5px;color:var(--muted);">${exp}</td>
       <td style="font-size:12.5px;color:var(--muted);">${slot}</td>
       <td>${statusBadge(s)}</td>`;
@@ -678,6 +925,20 @@ function uncheckDept(id){
   document.getElementById('w_'+id)?.classList.remove('checked');
   syncDeptTags();
 }
+async function updateStatus(id, status) {
+  const token = localStorage.getItem("accessToken");
+
+  await fetch(`http://localhost:8080/api/interview-requests/${id}/status?status=${status}`, {
+    method: "PUT",
+    headers: {
+      "Authorization": "Bearer " + token
+    }
+  });
+
+  await fetchInterviewRequests();
+  await renderReqTable();
+  await renderOverview();
+}
 
 function toggleCb(el){
   const cb=el.querySelector('input[type="checkbox"]');
@@ -714,49 +975,125 @@ function addCustomDomain(){
 function getSelectedDepts(){ return [...document.querySelectorAll('#deptCbGrid input:checked')].map(c=>c.value); }
 function getSelectedExp(){   return [...document.querySelectorAll('#expertiseCbGrid input:checked')].map(c=>c.value); }
 
-function handleSchedSubmit(e){
+async function handleSchedSubmit(e){
   e.preventDefault();
-  const depts=getSelectedDepts();
-  if(!depts.length){showToast('Select at least one department.','warn');return;}
-  const exp=getSelectedExp();
-  if(!exp.length){showToast('Select at least one expertise domain.','warn');return;}
-  const start=document.getElementById('startDT').value;
-  const end  =document.getElementById('endDT').value;
-  const cp   =document.getElementById('contactPerson').value;
-  const ce   =document.getElementById('contactEmail').value;
-  const rem  =document.getElementById('schedRemarks').value;
-  if(!start||!end||!cp||!ce){showToast('Fill in all required fields.','warn');return;}
-  const timeSlot=start+' – '+end;
-  const expertise=exp.join(', ');
-  const stored=getLegacy();
 
-  depts.forEach(name=>{
-    setStatus(name,'Pending');
-    const idx=departments.findIndex(d=>d.name===name);
-    if(idx!==-1){departments[idx].timeSlot=timeSlot;departments[idx].startDate=start;
-      departments[idx].expertise=expertise;departments[idx].contactPerson=cp;}
-    const si=stored.findIndex(d=>(d.departmentName||d.name)===name);
-    const entry={departmentName:name,expertise,timeSlot,startDate:start,endDate:end,contactPerson:cp,contactEmail:ce,remarks:rem};
-    if(si!==-1)stored[si]={...stored[si],...entry};
-    else stored.push(entry);
-  });
-  localStorage.setItem('departments',JSON.stringify(stored));
-  saveDepts();
-  // uncheck
-  document.querySelectorAll('#deptCbGrid input:checked').forEach(cb=>{cb.checked=false;cb.closest('.cb-item')?.classList.remove('checked');});
-  syncDeptTags();
-  document.querySelectorAll('#expertiseCbGrid input:checked').forEach(cb=>{cb.checked=false;cb.closest('.cb-item')?.classList.remove('checked');});
-  document.querySelectorAll('#expertiseCbGrid .cb-item').forEach(el=>{if(el.querySelector('input')?.id?.includes('custom'))el.remove();});
-  syncExpTags();
-  document.getElementById('schedForm').reset();
-  renderReqStats(); renderOverview();
-  openOverlay('schedSuccessModal');
+  const token = localStorage.getItem("accessToken");
+
+  const depts = getSelectedDepts();
+  const exp = getSelectedExp();
+
+  const start = document.getElementById('startDT').value;
+  const end   = document.getElementById('endDT').value;
+  const cp    = document.getElementById('contactPerson').value;
+  const ce    = document.getElementById('contactEmail').value;
+  const rem   = document.getElementById('schedRemarks').value;
+
+  // ✅ KEEP YOUR VALIDATION EXACTLY AS IT IS
+  if(!depts.length || !exp.length || !start || !end || !cp || !ce){
+    showToast('Fill all required fields','warn');
+    return;
+  }
+
+  try {
+
+    for (let dept of depts) {
+
+      const payload = {
+        departmentName: dept,
+        expertise: exp,
+        startDate: start,
+        endDate: end,
+        contactPerson: cp,
+        contactEmail: ce,
+        remarks: rem
+      };
+
+      const res = await fetch("http://localhost:8080/api/interview-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to send request");
+      }
+    }
+
+    showToast("Interview request submitted successfully!", "success");
+
+    // switch to requests tab
+    showView('requests');
+
+    // reload fresh data from backend
+    await fetchDepartments();
+    await fetchInterviewRequests();
+    // await renderReqStats();
+    // await renderReqTable();
+    await renderAll();
+
+    // optional UI cleanup (you can keep yours too)
+    document.querySelectorAll('#deptCbGrid input:checked')
+      .forEach(cb => {
+        cb.checked = false;
+        cb.closest('.cb-item')?.classList.remove('checked');
+      });
+
+    syncDeptTags();
+
+    document.querySelectorAll('#expertiseCbGrid input:checked')
+      .forEach(cb => {
+        cb.checked = false;
+        cb.closest('.cb-item')?.classList.remove('checked');
+      });
+
+    syncExpTags();
+
+    document.getElementById('schedForm').reset();
+
+  } catch (err){
+    console.error(err);
+    showToast("Error submitting request","error");
+  }
 }
-
 /* ═══════════════ REGISTRATION LINK ═══════════════ */
 async function genRegLink(){
+  const token = localStorage.getItem("accessToken");
+
+  if (!token) {
+    showToast("Please login again", "error");
+    window.location.href = "/login";
+    return;
+  }
+
   try {
-    const res = await fetch(`http://localhost:8080/register/institutes/${iid}/registration-link`);
+    const res = await fetch(`http://localhost:8080/register/institutes/${getInstituteId()}/registration-link`, {
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    });
+
+    if (res.status === 401) {
+      showToast("Session expired. Login again", "error");
+      localStorage.clear();
+      window.location.href = "/login";
+      return;
+    }
+
+    if (res.status === 403) {
+      showToast("Access Denied (Not authorized)", "error");
+      return;
+    }
+
+    if (!res.ok) {
+      throw new Error("Failed to generate link");
+    }
+
     const link = await res.text();
 
     document.getElementById('genLinkText').textContent = link;
@@ -798,18 +1135,23 @@ function cancelStatus(){
 }
 
 /* ═══════════════ BRANDING / LOGO ═══════════════ */
-const LOGO_KEY    = 'instituteLogo_'+iid;
-const BRANDING_KEY= 'instituteBranding_'+iid;
+function getLogoKey() {
+  return 'instituteLogo_' + getInstituteId();
+}
+
+function getBrandingKey() {
+  return 'instituteBranding_' + getInstituteId();
+}
 
 function initBranding(){
   const name=loggedInstitute.instituteName||loggedInstitute.name||'Institute';
   const inp=document.getElementById('instDisplayName');
   if(inp) inp.value=name;
-  const saved=JSON.parse(localStorage.getItem(BRANDING_KEY)||'{}');
+  const saved=JSON.parse(localStorage.getItem(getBrandingKey())||'{}');
   if(saved.website) document.getElementById('instWebsite').value=saved.website;
   if(saved.displayName){ if(inp) inp.value=saved.displayName; }
   document.getElementById('logoInstNameDisplay').textContent=saved.displayName||name;
-  const logo=localStorage.getItem(LOGO_KEY);
+  const logo=localStorage.getItem(getLogoKey());
   if(logo) applyLogoPreview(logo);
 }
 
@@ -828,7 +1170,7 @@ function handleLogoUpload(e){
   if(file.size>2*1024*1024){showToast('File too large. Max 2 MB.','warn');return;}
   const reader=new FileReader();
   reader.onload=ev=>{
-    localStorage.setItem(LOGO_KEY,ev.target.result);
+    localStorage.setItem(getLogoKey(),ev.target.result);
     applyLogoPreview(ev.target.result);
     showToast('Logo uploaded successfully!');
   };
@@ -837,7 +1179,7 @@ function handleLogoUpload(e){
 }
 
 function removeLogo(){
-  localStorage.removeItem(LOGO_KEY);
+  localStorage.removeItem(getLogoKey());
   const img=document.getElementById('logoPreviewImg');
   const icon=document.getElementById('logoPlaceholderIcon');
   const rmBtn=document.getElementById('removeLogoBtn');
@@ -852,7 +1194,7 @@ function saveBranding(){
   const website   =(document.getElementById('instWebsite').value||'').trim();
   if(!displayName){showToast('Enter an institute display name.','warn');return;}
   const saved={displayName,website};
-  localStorage.setItem(BRANDING_KEY,JSON.stringify(saved));
+  localStorage.setItem(getBrandingKey(),JSON.stringify(saved));
   document.getElementById('logoInstNameDisplay').textContent=displayName;
   // update header too
   document.getElementById('headerInstName').textContent=displayName.length>20?displayName.slice(0,20)+'…':displayName;
@@ -881,7 +1223,7 @@ function openLogout(){
 }
 function confirmLogout(){
   if(document.getElementById('skipLogout')?.checked) localStorage.setItem('skipLogoutConfirm','true');
-  localStorage.removeItem('currentInstitute');
+  localStorage.clear();
   showToast('Logged out successfully.');
   setTimeout(()=>{window.location.href='login.html';},800);
 }
@@ -899,18 +1241,83 @@ function showToast(msg,type='success'){
 }
 
 /* ═══════════════ RENDER ALL ═══════════════ */
-function renderAll(){
-  renderOverview(); renderDeptCards(); renderSettingsTable();
-  renderDeptCheckboxes(); renderReqStats(); renderReqTable();
+async function renderAll(){
+  await Promise.all([
+    renderOverview(),
+    renderDeptCards(),
+    renderSettingsTable()
+  ]);
+
+  renderDeptCheckboxes();
+  renderReqStats();
+  renderReqTable();
+  renderDeptChart();
 }
 
 /* ═══════════════ INIT ═══════════════ */
-window.addEventListener('DOMContentLoaded',()=>{
+window.addEventListener('DOMContentLoaded', async () => {
+
+  // 1. get institute FIRST
+  await fetchInstituteDetails();
+
+  // 2. now safe to sync
+  syncRegistry();
+
+  // 3. load dashboard API
+  await loadDashboard();
+
+  // 4. UI setup
   initHeader();
   initBranding();
-  const saved=JSON.parse(localStorage.getItem(DEPTS_KEY))||[];
-  departments=saved;
-  renderAll();
-  fetchDepartments();
-  checkSetup();
+
+  // 5. load departments
+  
+  await fetchDepartments();
+
+  // 6. render everything
+  await renderAll();
+
+  // 7. check setup modal
+  await checkSetup();
 });
+
+async function renderDeptChart() {
+  const token = localStorage.getItem("accessToken");
+
+  try {
+    const res = await fetch(`http://localhost:8080/departments/stats/${getInstituteId()}`, {
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    });
+
+    if (!res.ok) throw new Error("Failed to fetch stats");
+
+    const data = await res.json();
+
+    const chart = document.getElementById("deptChart");
+    chart.innerHTML = "";
+
+    if (!data.length) {
+      chart.innerHTML = "<p style='color:var(--muted)'>No data available</p>";
+      return;
+    }
+
+    const max = Math.max(...data.map(d => d.studentCount), 1);
+
+    data.forEach((d, index) => {
+      const height = (d.studentCount / max) * 100;
+
+      const bar = document.createElement("div");
+      bar.className = "bar";
+      bar.style.height = height + "%";
+      bar.setAttribute("data-value", d.studentCount);
+      bar.setAttribute("data-label", d.name);
+
+      chart.appendChild(bar);
+    });
+
+  } catch (err) {
+    console.error(err);
+  }
+}
